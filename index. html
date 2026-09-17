@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Tracker - No Report</title>
+<style>
+*{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#f3f4f8;margin:0;padding:12px}
+.top{background:#fff;border-radius:24px;padding:18px;border:1px solid #eee}
+.badge{background:#000;color:#fff;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700}
+.bar{height:8px;background:#efefef;border-radius:10px;overflow:hidden;margin-top:12px}
+.fill{height:8px;background:#000}
+.circles{display:flex;gap:14px;overflow:auto;margin-top:18px}
+.circleWrap{text-align:center;min-width:72px}
+.circle{width:64px;height:64px;position:relative}
+.pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+.card{background:#fff;border-radius:20px;padding:14px;margin-top:12px;border:1px solid #eee}
+.tab{padding:9px 18px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:13px}
+.tab.active{background:#000;color:#fff}
+.taskRow{background:#f8f8fb;padding:9px 10px;border-radius:10px;margin-top:6px;display:flex;justify-content:space-between;align-items:center;font-size:13px;border:1px solid #f0f0f0}
+select,input{border:1px solid #ddd;border-radius:12px;padding:10px;font-size:13px}
+.dateLabel{font-size:11px;font-weight:800;background:#eef2ff;padding:5px 10px;border-radius:8px;margin-top:12px;display:inline-block}
+.delBtn{border:0;background:#ffe1e1;color:#c00;width:26px;height:26px;border-radius:8px;font-weight:700}
+</style>
+</head>
+<body>
+<div style="max-width:650px;margin:auto">
+<div class="top">
+<div style="display:flex;justify-content:space-between;align-items:center"><div><b style="font-size:18px">Study Tracker</b><div style="font-size:12px;color:#888">Physics, Higher Math, Biology, Chemistry</div></div><span class="badge" id="totalBadge">0% Total</span></div>
+<div class="bar"><div class="fill" id="totalBar" style="width:0%"></div></div>
+<div class="circles" id="circleRow"></div>
+</div>
+
+<div style="display:flex;gap:8px;margin-top:14px">
+<button class="tab active" id="t1" onclick="switchTab('s')">📚 Subjects</button>
+<button class="tab" id="t2" onclick="switchTab('d')">📅 Daily Tasks</button>
+</div>
+
+<div id="v-s"></div>
+
+<div id="v-d" style="display:none">
+<div class="card" style="margin-top:12px">
+<b>Daily Task যোগ করো (Subject + Chapter)</b>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+<div><div style="font-size:11px;font-weight:700;color:#666">SUBJECT</div><select id="selSub" onchange="onSubChange()" style="width:100%;margin-top:4px;background:#f9f9fb"></select></div>
+<div><div style="font-size:11px;font-weight:700;color:#666">CHAPTER</div><select id="selChap" style="width:100%;margin-top:4px;background:#f9f9fb"></select></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1.5fr;gap:8px;margin-top:10px">
+<div><div style="font-size:11px;font-weight:700;color:#666">DATE</div><input type="date" id="taskDate" style="width:100%;margin-top:4px;background:#f9f9fb"></div>
+<div><div style="font-size:11px;font-weight:700;color:#666">TASK</div><input id="dailyInput" placeholder="Task লিখো" style="width:100%;margin-top:4px"></div>
+</div>
+<div style="display:flex;gap:8px;margin-top:10px"><button onclick="addDaily()" style="width:100%;background:#000;color:#fff;border:0;padding:11px;border-radius:12px;font-weight:700">Add</button></div>
+<div id="dailyList" style="margin-top:14px"></div>
+</div>
+</div>
+</div>
+
+<script>
+var COLORS={'Physics':'#EF4444','Higher Math':'#3B82F6','Biology':'#10B981','Chemistry':'#F59E0B'};
+var data=null;
+try{data=JSON.parse(localStorage.getItem('FINAL_NO_REPORT')||'null')}catch(e){data=null}
+if(!data){data={subjects:[{id:1,name:'Physics',chapters:[]},{id:2,name:'Higher Math',chapters:[]},{id:3,name:'Biology',chapters:[]},{id:4,name:'Chemistry',chapters:[]}],daily:{}};}
+var TODAY=new Date().toISOString().slice(0,10);
+function save(){localStorage.setItem('FINAL_NO_REPORT',JSON.stringify(data));render();}
+function cPer(c){if(!c.tasks.length)return 0;var d=0;for(var i=0;i<c.tasks.length;i++)if(c.tasks[i].done)d++;return Math.round(d/c.tasks.length*100);}
+function sPer(s){if(!s.chapters.length)return 0;var sum=0;for(var i=0;i<s.chapters.length;i++)sum+=cPer(s.chapters[i]);return Math.round(sum/s.chapters.length);}
+function totPer(){var sum=0;for(var i=0;i<data.subjects.length;i++)sum+=sPer(data.subjects[i]);return Math.round(sum/data.subjects.length);}
+function switchTab(t){document.getElementById('v-s').style.display=t=='s'?'block':'none';document.getElementById('v-d').style.display=t=='d'?'block':'none';document.getElementById('t1').className=t=='s'?'tab active':'tab';document.getElementById('t2').className=t=='d'?'tab active':'tab';}
+function addChapter(sid){var n=prompt('Chapter নাম:');if(!n)return;for(var i=0;i<data.subjects.length;i++)if(data.subjects[i].id==sid){data.subjects[i].chapters.push({id:Date.now(),name:n,tasks:[]});break;}save();}
+function delChapter(sid,cid){if(!confirm('Delete করবে?'))return;for(var i=0;i<data.subjects.length;i++)if(data.subjects[i].id==sid){data.subjects[i].chapters=data.subjects[i].chapters.filter(function(x){return x.id!=cid});break;}save();}
+function addTask(sid,cid){var n=prompt('Task নাম:');if(!n)return;for(var i=0;i<data.subjects.length;i++)if(data.subjects[i].id==sid){for(var j=0;j<data.subjects[i].chapters.length;j++)if(data.subjects[i].chapters[j].id==cid){data.subjects[i].chapters[j].tasks.push({id:Date.now(),name:n,done:false});}}save();}
+function togTask(sid,cid,tid){for(var i=0;i<data.subjects.length;i++)if(data.subjects[i].id==sid){for(var j=0;j<data.subjects[i].chapters.length;j++)if(data.subjects[i].chapters[j].id==cid){for(var k=0;k<data.subjects[i].chapters[j].tasks.length;k++)if(data.subjects[i].chapters[j].tasks[k].id==tid){data.subjects[i].chapters[j].tasks[k].done=!data.subjects[i].chapters[j].tasks[k].done;}}}save();}
+function onSubChange(){var sid=parseInt(document.getElementById('selSub').value);var sub=null;for(var i=0;i<data.subjects.length;i++)if(data.subjects[i].id==sid)sub=data.subjects[i];var sel=document.getElementById('selChap');if(!sub||!sub.chapters.length){sel.innerHTML='<option value="">Chapter নেই - আগে Subjects এ Add করো</option>';}else{var h='';for(var i=0;i<sub.chapters.length;i++)h+='<option value="'+sub.chapters[i].id+'">'+sub.chapters[i].name+'</option>';sel.innerHTML=h;}}
+
+function addDaily(){
+var name=document.getElementById('dailyInput').value.trim();
+var sid=parseInt(document.getElementById('selSub').value);
+var cid=parseInt(document.getElementById('selChap').value);
+var DATE=document.getElementById('taskDate').value || TODAY;
+if(!name){alert('Task লিখো');return;}
+if(!cid){alert('আগে Subjects ট্যাবে গিয়ে Chapter Add করো');return;}
+if(!data.daily[DATE])data.daily[DATE]=[];
+var sub=null;for(var i=0;i<data.subjects.length;i++)if(data.subjects[i].id==sid)sub=data.subjects[i];
+var chap=null;for(var i=0;i<sub.chapters.length;i++)if(sub.chapters[i].id==cid)chap=sub.chapters[i];
+var nt={id:Date.now(),name:name,done:false,date:DATE};
+chap.tasks.push(nt);
+data.daily[DATE].push({id:Date.now(),name:name,subjectId:sid,chapterId:cid,chapterName:chap.name,linkId:nt.id,done:false,date:DATE});
+document.getElementById('dailyInput').value='';
+save();
+}
+function togDaily(id, dateKey){
+var arr=data.daily[dateKey];
+for(var i=0;i<arr.length;i++)if(arr[i].id==id){
+arr[i].done=!arr[i].done;
+for(var a=0;a<data.subjects.length;a++)if(data.subjects[a].id==arr[i].subjectId){
+for(var b=0;b<data.subjects[a].chapters.length;b++)if(data.subjects[a].chapters[b].id==arr[i].chapterId){
+for(var c=0;c<data.subjects[a].chapters[b].tasks.length;c++)if(data.subjects[a].chapters[b].tasks[c].id==arr[i].linkId){
+data.subjects[a].chapters[b].tasks[c].done=arr[i].done;
+}}}}
+save();
+}
+// নতুন Delete ফাংশন
+function delDaily(id, dateKey){
+if(!confirm('এই Task টা মুছে ফেলবে?')) return;
+var task=data.daily[dateKey].find(function(x){return x.id==id});
+if(task){
+// Chapter থেকেও মুছে ফেলা
+for(var a=0;a<data.subjects.length;a++)if(data.subjects[a].id==task.subjectId){
+for(var b=0;b<data.subjects[a].chapters.length;b++)if(data.subjects[a].chapters[b].id==task.chapterId){
+data.subjects[a].chapters[b].tasks=data.subjects[a].chapters[b].tasks.filter(function(x){return x.id!=task.linkId});
+}}
+// Daily থেকেও মুছে ফেলা
+data.daily[dateKey]=data.daily[dateKey].filter(function(x){return x.id!=id});
+if(data.daily[dateKey].length==0) delete data.daily[dateKey];
+}
+save();
+}
+
+function render(){
+var total=totPer();document.getElementById('totalBadge').innerText=total+'% Total';document.getElementById('totalBar').style.width=total+'%';
+if(!document.getElementById('taskDate').value) document.getElementById('taskDate').value=TODAY;
+var cr='';for(var i=0;i<data.subjects.length;i++){var s=data.subjects[i];var p=sPer(s);var col=COLORS[s.name];var r=26;var circ=2*3.1416*r;var off=circ-(p/100)*circ;cr+='<div class="circleWrap"><div class="circle"><svg width="64" height="64" style="transform:rotate(-90deg)"><circle cx="32" cy="32" r="'+r+'" fill="none" stroke="#eee" stroke-width="6"/><circle cx="32" cy="32" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+circ+'" stroke-dashoffset="'+off+'"/></svg><div class="pct" style="color:'+col+'">'+p+'%</div></div><div style="font-size:11px;font-weight:700;margin-top:2px">'+s.name+'</div></div>';}
+document.getElementById('circleRow').innerHTML=cr;
+var html='';for(var i=0;i<data.subjects.length;i++){var s=data.subjects[i];var col=COLORS[s.name];html+='<div class="card" style="border-left:5px solid '+col+'"><div style="display:flex;justify-content:space-between"><b>'+s.name+' - '+sPer(s)+'%</b><button onclick="addChapter('+s.id+')" style="background:#000;color:#fff;border:0;padding:5px 12px;border-radius:20px;font-size:12px">+ Chapter</button></div>';if(!s.chapters.length)html+='<div style="font-size:12px;color:#999;margin-top:8px">কোনো Chapter নেই</div>';for(var j=0;j<s.chapters.length;j++){var c=s.chapters[j];html+='<div style="background:#f8f8fb;padding:10px;border-radius:12px;margin-top:8px"><div style="display:flex;justify-content:space-between"><b style="font-size:13px">'+c.name+' - '+cPer(c)+'%</b><button onclick="delChapter('+s.id+','+c.id+')" style="background:#ffe1e1;color:#c00;border:0;padding:3px 8px;border-radius:10px;font-size:11px">Delete</button></div>';for(var k=0;k<c.tasks.length;k++){var t=c.tasks[k];html+='<label class="taskRow"><span><input type="checkbox" '+(t.done?'checked':'')+' onchange="togTask('+s.id+','+c.id+','+t.id+')"> '+t.name+'</span></label>';}html+='<button onclick="addTask('+s.id+','+c.id+')" style="margin-top:6px;background:#fff;border:1px solid #ddd;padding:4px 10px;border-radius:20px;font-size:11px">+ Task</button></div>';}html+='</div>';}
+document.getElementById('v-s').innerHTML=html;
+var selSub=document.getElementById('selSub');var cur=selSub.value;var h='';for(var i=0;i<data.subjects.length;i++)h+='<option value="'+data.subjects[i].id+'">'+data.subjects[i].name+'</option>';selSub.innerHTML=h;if(cur)selSub.value=cur;onSubChange();
+
+var allDates=Object.keys(data.daily).sort().reverse();
+var dh='';
+if(!allDates.length) dh='<div style="font-size:12px;color:#999;text-align:center;padding:10px">কোনো Task নেই</div>';
+else{
+ for(var d=0; d<allDates.length; d++){
+   var dateKey=allDates[d];
+   var dArr=data.daily[dateKey];
+   if(!dArr ||!dArr.length) continue;
+   dh+='<div class="dateLabel">📅 '+dateKey+' - '+dArr.length+' টা</div>';
+   for(var i=0;i<dArr.length;i++){
+     var task=dArr[i];
+     var sn='';for(var a=0;a<data.subjects.length;a++)if(data.subjects[a].id==task.subjectId)sn=data.subjects[a].name;
+     dh+='<div class="taskRow"><label style="flex:1"><input type="checkbox" '+(task.done?'checked':'')+' onchange="togDaily('+task.id+',\''+dateKey+'\')"> <b style="font-size:10px;color:'+COLORS[sn]+'">'+sn+'→'+task.chapterName+'</b> '+task.name+'</label><button class="delBtn" onclick="delDaily('+task.id+',\''+dateKey+'\')">✕</button></div>';
+   }
+ }
+}
+document.getElementById('dailyList').innerHTML=dh;
+}
+render();
+</script>
+</body>
+</html>
